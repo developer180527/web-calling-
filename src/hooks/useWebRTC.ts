@@ -108,6 +108,23 @@ export function useWebRTC(user: any) {
 
     await setDoc(callDoc, callData);
 
+    // Call backend to send push notification
+    try {
+      await fetch('/api/notify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          callerId: user.uid,
+          calleeId,
+          type
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to send push notification:', error);
+    }
+
     // Listen for answer
     const unsubCall = onSnapshot(callDoc, (snapshot) => {
       const data = snapshot.data();
@@ -245,11 +262,33 @@ export function useWebRTC(user: any) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
+      snapshot.docChanges().forEach(async (change) => {
         if (change.type === "added") {
           const data = change.doc.data();
           setIncomingCall({ id: change.doc.id, ...data });
           setCallStatus("ringing");
+
+          // Trigger local notification if permitted and app is in background
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              const callerDoc = await getDoc(doc(db, 'users', data.callerId));
+              const callerName = callerDoc.exists() ? callerDoc.data().displayName : 'Someone';
+              
+              const notification = new Notification('Incoming Call', {
+                body: `${callerName} is calling you via ${data.type}...`,
+                icon: '/icon.svg',
+                requireInteraction: true,
+                tag: 'incoming-call'
+              });
+              
+              notification.onclick = () => {
+                window.focus();
+                notification.close();
+              };
+            } catch (e) {
+              console.error('Failed to fetch caller info for notification', e);
+            }
+          }
         }
         if (change.type === "modified") {
           const data = change.doc.data();

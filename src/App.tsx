@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { auth, db, signInWithGoogle, logout } from "./firebase";
+import { auth, db, signInWithGoogle, logout, messaging } from "./firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { getToken, onMessage } from "firebase/messaging";
 import {
   collection,
   doc,
@@ -38,6 +39,23 @@ export default function App() {
       setAuthReady(true);
 
       if (currentUser) {
+        // Request Notification Permission
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+
+        let fcmToken = '';
+        try {
+          if (messaging && Notification.permission === 'granted') {
+            const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+            if (vapidKey) {
+              fcmToken = await getToken(messaging, { vapidKey });
+            }
+          }
+        } catch (e) {
+          console.warn('FCM token generation failed', e);
+        }
+
         const userRef = doc(db, "users", currentUser.uid);
         await setDoc(
           userRef,
@@ -48,6 +66,7 @@ export default function App() {
             photoURL: currentUser.photoURL || "",
             isOnline: true,
             lastSeen: Date.now(),
+            ...(fcmToken ? { fcmToken } : {})
           },
           { merge: true },
         );
@@ -55,6 +74,15 @@ export default function App() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Listen for foreground messages
+  useEffect(() => {
+    if (!messaging) return;
+    const unsub = onMessage(messaging, (payload) => {
+      console.log('Received foreground message:', payload);
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {

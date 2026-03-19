@@ -11,7 +11,8 @@
         "photoURL": { "type": "string" },
         "isOnline": { "type": "boolean" },
         "lastSeen": { "type": "number" },
-        "currentCallId": { "type": "string" }
+        "currentCallId": { "type": "string" },
+        "fcmToken": { "type": "string" }
       },
       "required": ["uid", "displayName", "email", "isOnline"]
     },
