@@ -1,0 +1,5 @@
+{
+  "name": "WebCall",
+  "description": "An internet calling progressive web app with video and voice calling features.",
+  "requestFramePermissions": ["camera", "microphone"]
+}
